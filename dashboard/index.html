@@ -1,235 +1,0 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8" />
-    <title>لوحة الأمان الذكي - Smart Security Dashboard</title>
-
-    <link rel="stylesheet" href="styles.css" />
-
-    <!-- Leaflet -->
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- Heatmap -->
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
-
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-
-    <!-- شريط الأوفلاين -->
-    <div id="offline-banner" class="offline-banner" style="display:none;">
-        ⚠️ فقد الاتصال بالخادم مؤقتًا، سيتم المحاولة مرة أخرى...
-    </div>
-
-    <main class="dashboard">
-        <!-- الهيدر -->
-        <header class="dashboard-header">
-            <div>
-                <h1>لوحة الأمان الذكي (محاكاة منصة أبشر)</h1>
-                <p class="subtitle">مراقبة أجهزة الأمان المنزلي لحظيًا</p>
-                <p id="context-info" class="subtitle">
-                    👤 حساب أبشر: <strong>1234567890</strong> • 🏠 منزل: <strong>HOME-1234</strong>
-                </p>
-            </div>
-
-            <div class="header-controls">
-                <div id="connection-status" class="conn-status">
-                    <span class="conn-dot"></span> يتم الفحص...
-                </div>
-
-                <select id="view-mode" class="view-mode-select">
-                    <option value="owner">وضع صاحب المنزل</option>
-                    <option value="ops">وضع غرفة العمليات</option>
-                </select>
-
-                <button id="toggle-fetch-btn" class="toggle-btn">⏸ إيقاف التحديث</button>
-                <button id="theme-toggle-btn" class="theme-btn">☀️ الوضع الفاتح</button>
-                <button id="go-reports-btn" class="export-btn">📊 صفحة التقارير</button>
-            </div>
-        </header>
-
-        <!-- الكروت العلوية -->
-        <section class="stats">
-            <div class="card">
-                <h2>البلاغات المفتوحة الآن</h2>
-                <p id="total-events" class="big-number">0</p>
-            </div>
-
-            <div class="card danger-card">
-                <h2>حالات الخطر المفتوحة</h2>
-                <p id="danger-count" class="big-number">0</p>
-            </div>
-
-            <div class="card">
-                <h2>مستوى الخطر العام</h2>
-                <div class="risk-wrapper">
-                    <div class="risk-bar">
-                        <div id="risk-bar-fill"></div>
-                    </div>
-                    <p id="risk-label" class="muted">لا توجد بيانات</p>
-                </div>
-            </div>
-
-            <div class="card">
-                <h2>آخر حدث</h2>
-                <p id="last-event" class="muted">لا يوجد بيانات</p>
-            </div>
-        </section>
-
-        <!-- كرت خاص بوضع الدوريات السرية -->
-<section class="officer-section">
-    <div class="card officer-card">
-        <h2>وضع الدوريات السرية</h2>
-        <p id="officer-summary-text" class="muted">
-            لا توجد بيانات عن الدوريات حتى الآن.
-        </p>
-
-        <div class="officer-status-row">
-            <span>🟢 آمن: <strong id="officer-safe-count">0</strong></span>
-            <span>🟠 غير مستقر: <strong id="officer-unstable-count">0</strong></span>
-            <span>🔴 طارئ: <strong id="officer-emergency-count">0</strong></span>
-        </div>
-
-        <button id="officer-view-toggle" class="toggle-btn officer-toggle-btn">
-            🎖 تفعيل وضع الدوريات السرية
-        </button>
-    </div>
-</section>
-
-
-        <!-- خريطة + تشارت -->
-        <section class="map-section">
-            <div class="card">
-                <div class="card-header">
-                    <h2>خريطة المنزل + Heatmap</h2>
-                </div>
-                <div id="map"></div>
-            </div>
-
-            <div class="card">
-                <div class="card-header">
-                    <h2>مخطط حي لعدد الأحداث</h2>
-                </div>
-                <canvas id="liveChart" height="120"></canvas>
-            </div>
-        </section>
-
-        <!-- جولة أمنية -->
-        <section class="patrol-section">
-            <div class="card">
-                <div class="card-header">
-                    <h2>جولة أمنية ذكية (دورية + درون)</h2>
-                </div>
-                <div id="patrol-map"></div>
-            </div>
-        </section>
-
-        <section class="map-section">
-    <div class="card">
-        <div class="card-header">
-            <h2>خريطة الدوريات السرّية</h2>
-            <span class="auto-refresh">
-                مواقع العسكر + حرارة النشاط الأمني + خطوط الاتصال
-            </span>
-        </div>
-        <div id="officers-map"></div>
-    </div>
-</section>
-
-
-        <!-- ملخص الأجهزة -->
-        <section class="events-section">
-            <div class="card">
-                <div class="card-header">
-                    <h2>الأجهزة النشطة</h2>
-                </div>
-                <ul id="devices-summary" class="devices-summary"></ul>
-            </div>
-        </section>
-
-        <!-- جدول الأحداث -->
-        <section class="events-section">
-            <div class="events-header">
-                <h2>قائمة الأحداث</h2>
-                <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <button id="resolve-all-btn" class="export-btn">✅ حلّ جميع البلاغات المفتوحة</button>
-                    <button id="export-excel-btn" class="export-btn">⬇️ تصدير CSV</button>
-                    <button id="import-excel-btn" class="export-btn">⬆️ استيراد CSV</button>
-                    <input type="file" id="file-input" accept=".csv" style="display:none;">
-                </div>
-            </div>
-
-            <div class="filters">
-                <div class="filter-group">
-                    <label for="level-filter">مستوى الخطورة</label>
-                    <select id="level-filter">
-                        <option value="all">الكل</option>
-                        <option value="info">Info</option>
-                        <option value="warning">Warning</option>
-                        <option value="danger">Danger</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="time-filter">المدة الزمنية</label>
-                    <select id="time-filter">
-                        <option value="all">كل الأوقات</option>
-                        <option value="5">آخر 5 دقائق</option>
-                        <option value="15">آخر 15 دقيقة</option>
-                        <option value="60">آخر ساعة</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="device-filter">الجهاز</label>
-                    <select id="device-filter">
-                        <option value="all">كل الأجهزة</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="status-filter">حالة البلاغ</label>
-                    <select id="status-filter">
-                        <option value="open">مفتوحة</option>
-                        <option value="resolved">مغلقة</option>
-                        <option value="all">الكل</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label>وضع المحاكاة</label>
-                    <button id="simulation-toggle-btn" class="toggle-btn">
-                        ▶ تشغيل المحاكاة
-                    </button>
-                </div>
-            </div>
-
-            <table>
-                <thead>
-                    <tr>
-                        <th>الوقت</th>
-                        <th>الجهاز</th>
-                        <th>النوع</th>
-                        <th>الخطورة</th>
-                        <th>الحالة</th>
-                    </tr>
-                </thead>
-                <tbody id="events-table-body"></tbody>
-            </table>
-        </section>
-    </main>
-
-    <!-- Toasts -->
-    <div id="toast-container"></div>
-
-    <!-- صوت تنبيه -->
-    <audio id="alert-sound" src="alert.mp3" preload="auto"></audio>
-
-    <script src="app.js"></script>
-</body>
-</html>
