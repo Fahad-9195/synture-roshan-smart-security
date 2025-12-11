@@ -293,13 +293,13 @@ def get_officer(officer_id: str):
 # ===== static + الواجهة =====
 
 # مجلد الملفات الثابتة (فيه الواجهات)
-app.mount("/static", StaticFiles(directory="backend/static"), name="static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # لما تفتح https://syntrue-absher.onrender.com يرسل لك لوحة "dashboard-absher" مباشرة
 @app.get("/")
 def root():
     # Show welcome page to choose between civilian and military
-    return FileResponse("backend/static/welcome.html")
+    return FileResponse("static/welcome.html")
 
 # Health check endpoint
 @app.get("/health")
