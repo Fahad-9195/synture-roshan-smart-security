@@ -732,6 +732,13 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+    
+    # Get the directory where main.py is located
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(current_dir)
+    
+    print("✅ Database initialized successfully")
     print("🚀 Starting Smart Security System - Absher Edition")
     print("📊 Dashboard: https://syntrue-absher.onrender.com")
     print("🗺️  Operations Center: https://syntrue-absher.onrender.com/static/operations-center.html")
