@@ -701,6 +701,7 @@
     <div class="controls-row">
       <button id="toggle-fetch-btn" class="btn primary"><i class="fas fa-pause"></i> إيقاف التحديث</button>
       <button id="simulation-toggle-btn" class="btn"><i class="fas fa-play"></i> تشغيل المحاكاة</button>
+      <button id="manual-burglary-btn" class="btn danger"><i class="fas fa-bell"></i> بلاغ سرقة (خارج المنزل)</button>
       <button id="export-excel-btn" class="btn"><i class="fas fa-download"></i> تصدير CSV</button>
       <button id="import-excel-btn" class="btn"><i class="fas fa-upload"></i> استيراد CSV</button>
       <button id="resolve-all-btn" class="btn danger"><i class="fas fa-check-double"></i> حل جميع البلاغات</button>
@@ -922,6 +923,7 @@
     const offlineBanner = document.getElementById("offline-banner");
     const toggleBtn = document.getElementById("toggle-fetch-btn");
     const simulationToggleBtn = document.getElementById("simulation-toggle-btn");
+    const manualBurglaryBtn = document.getElementById("manual-burglary-btn");
     const exportExcelBtn = document.getElementById("export-excel-btn");
     const importExcelBtn = document.getElementById("import-excel-btn");
     const fileInput = document.getElementById("file-input");
@@ -1694,6 +1696,40 @@
       }
     }
 
+    /*************** بلاغ يدوي عند غياب صاحب المنزل ***************/
+    async function sendManualBurglaryReport() {
+      const ok = confirm("تأكيد إرسال بلاغ سرقة؟ سيتم إشعار مركز العمليات فوراً.");
+      if (!ok) return;
+      manualBurglaryBtn.disabled = true;
+      manualBurglaryBtn.textContent = "... جاري إرسال البلاغ";
+      try {
+        const payload = {
+          device_id: "manual_user_report",
+          type: "burglary_report",
+          level: "danger",
+          status: "open",
+          home_id: DEFAULT_HOME_ID,
+          absher_id: DEFAULT_ABSHER_ID,
+          timestamp: new Date().toISOString(),
+          reporter: currentUser,
+          message: "بلاغ سرقة - المنزل خالٍ، تم الإبلاغ من المالك عن بعد",
+        };
+        await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        showToast("تم رفع البلاغ وإشعار العمليات ✅", "info");
+        fetchEvents();
+      } catch (err) {
+        console.error("Manual report error:", err);
+        showToast("تعذر إرسال البلاغ، تحقق من الاتصال", "warning");
+      } finally {
+        manualBurglaryBtn.disabled = false;
+        manualBurglaryBtn.textContent = "بلاغ سرقة (خارج المنزل)";
+      }
+    }
+
     function startSimulation() {
       if (simulationEnabled) return;
       simulationEnabled = true;
@@ -1870,6 +1906,8 @@ ${events
         if (simulationEnabled) stopSimulation();
         else startSimulation();
       });
+
+      manualBurglaryBtn.addEventListener("click", sendManualBurglaryReport);
 
       exportExcelBtn.addEventListener("click", exportVisibleEventsToExcel);
 
