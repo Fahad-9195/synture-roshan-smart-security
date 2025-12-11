@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 import database as db
 import auth
+import events_management as events_mgmt
 
 app = FastAPI(title="Smart Security System - Absher", version="2.0")
 security = HTTPBearer()
@@ -59,6 +60,88 @@ class UserResponse(BaseModel):
     full_name: str
     email: Optional[str]
     is_active: bool
+
+# ===== نماذج الفعاليات والأحداث الموسمية =====
+
+class SeasonalEventCreate(BaseModel):
+    event_name: str
+    event_type: str  # hajj, umrah, religious_event
+    description: Optional[str] = None
+    start_date: datetime
+    end_date: datetime
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    location_name: Optional[str] = None
+    max_participants: int
+    security_level: str = "high"
+    requires_biometric: bool = True
+    requires_iot_device: bool = True
+
+class EventParticipantCreate(BaseModel):
+    participant_id: str
+    full_name: str
+    national_id: Optional[str] = None
+    passport_number: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+
+class IoTDeviceCreate(BaseModel):
+    device_id: str
+    device_type: str  # bracelet, badge, wristband
+    device_name: str
+    participant_id: str
+    battery_level: float = 100
+    firmware_version: Optional[str] = None
+
+class BiometricDataCreate(BaseModel):
+    participant_id: str
+    fingerprint_hash: Optional[str] = None
+    facial_recognition_data: Optional[str] = None
+    iris_scan_data: Optional[str] = None
+    voice_recognition_data: Optional[str] = None
+    confidence_score: Optional[float] = 0
+
+class AccessLogCreate(BaseModel):
+    participant_id: str
+    device_id: Optional[str] = None
+    access_type: str  # entry, exit
+    entry_location_lat: Optional[float] = None
+    entry_location_lng: Optional[float] = None
+    access_point: Optional[str] = None
+
+class LocationTrackCreate(BaseModel):
+    participant_id: str
+    device_id: Optional[str] = None
+    latitude: float
+    longitude: float
+    accuracy: Optional[float] = None
+    altitude: Optional[float] = None
+    speed: Optional[float] = None
+    heading: Optional[float] = None
+
+class SecurityAlertCreate(BaseModel):
+    participant_id: Optional[str] = None
+    device_id: Optional[str] = None
+    alert_type: str
+    severity: str = "medium"
+    description: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    action_taken: Optional[str] = None
+
+class FraudAttemptCreate(BaseModel):
+    participant_id: Optional[str] = None
+    device_id: Optional[str] = None
+    attempt_type: str
+    details: Optional[str] = None
+    location_lat: Optional[float] = None
+    location_lng: Optional[float] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    severity: str = "high"
+    action_taken: Optional[str] = None
 
 # ===== Auth Dependency =====
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
@@ -300,6 +383,347 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def root():
     # Show welcome page to choose between civilian and military
     return FileResponse("static/welcome.html")
+
+# ===== API الفعاليات والأحداث الموسمية =====
+
+@app.post("/api/events/seasonal/create")
+def create_seasonal_event(event: SeasonalEventCreate):
+    """إنشاء فعالية موسمية جديدة (الحج، العمرة، إلخ)"""
+    try:
+        event_data = event.dict()
+        event_id = events_mgmt.events_db.create_event(event_data)
+        return {
+            "ok": True,
+            "event_id": event_id,
+            "message": f"تم إنشاء الفعالية: {event.event_name}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}")
+def get_seasonal_event(event_id: int):
+    """الحصول على بيانات الفعالية"""
+    try:
+        event = events_mgmt.events_db.get_event(event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="الفعالية غير موجودة")
+        return event
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal")
+def list_seasonal_events(event_type: Optional[str] = None, status: Optional[str] = None):
+    """قائمة الفعاليات الموسمية"""
+    try:
+        events = events_mgmt.events_db.list_events(status=status, event_type=event_type)
+        return {
+            "count": len(events),
+            "events": events
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/events/seasonal/{event_id}/participants")
+def register_event_participant(event_id: int, participant: EventParticipantCreate):
+    """تسجيل مشارك جديد في الفعالية"""
+    try:
+        participant_data = participant.dict()
+        participant_data['event_id'] = event_id
+        participant_id = events_mgmt.events_db.register_participant(participant_data)
+        return {
+            "ok": True,
+            "participant_id": participant_id,
+            "message": f"تم تسجيل المشارك: {participant.full_name}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/participants")
+def list_event_participants(event_id: int, status: Optional[str] = None):
+    """قائمة مشاركي الفعالية"""
+    try:
+        participants = events_mgmt.events_db.list_event_participants(event_id, status=status)
+        return {
+            "count": len(participants),
+            "participants": participants
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/participants/{participant_id}")
+def get_event_participant(event_id: int, participant_id: str):
+    """الحصول على بيانات المشارك"""
+    try:
+        participant = events_mgmt.events_db.get_participant(participant_id, event_id)
+        if not participant:
+            raise HTTPException(status_code=404, detail="المشارك غير موجود")
+        return participant
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/events/seasonal/{event_id}/participants/{participant_id}/verify")
+def verify_participant(event_id: int, participant_id: str, verification_status: str = "verified"):
+    """التحقق من بيانات المشارك"""
+    try:
+        success = events_mgmt.events_db.verify_participant(
+            participant_id, event_id, verification_status
+        )
+        if success:
+            return {"ok": True, "message": "تم التحقق من المشارك بنجاح"}
+        else:
+            raise HTTPException(status_code=404, detail="المشارك غير موجود")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API أجهزة IoT =====
+
+@app.post("/api/events/seasonal/{event_id}/iot-devices")
+def register_iot_device(event_id: int, device: IoTDeviceCreate):
+    """تسجيل جهاز IoT جديد (أسورة، معرف ذكي)"""
+    try:
+        device_data = device.dict()
+        device_data['event_id'] = event_id
+        device_record_id = events_mgmt.events_db.register_iot_device(device_data)
+        return {
+            "ok": True,
+            "device_record_id": device_record_id,
+            "message": f"تم تسجيل جهاز: {device.device_name}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/iot-devices/{device_id}")
+def get_iot_device(event_id: int, device_id: str):
+    """الحصول على بيانات جهاز IoT"""
+    try:
+        device = events_mgmt.events_db.get_iot_device(device_id)
+        if not device:
+            raise HTTPException(status_code=404, detail="الجهاز غير موجود")
+        return device
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/events/seasonal/{event_id}/iot-devices/{device_id}/status")
+def update_iot_device_status(event_id: int, device_id: str, status_data: dict):
+    """تحديث حالة جهاز IoT (البطارية، جودة الإشارة)"""
+    try:
+        success = events_mgmt.events_db.update_device_status(device_id, status_data)
+        if success:
+            return {"ok": True, "message": "تم تحديث حالة الجهاز"}
+        else:
+            raise HTTPException(status_code=404, detail="الجهاز غير موجود")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API البيانات البيومترية =====
+
+@app.post("/api/events/seasonal/{event_id}/participants/{participant_id}/biometric")
+def register_biometric(event_id: int, participant_id: str, biometric: BiometricDataCreate):
+    """تسجيل البيانات البيومترية (بصمات، تعرف الوجه، المسح الدقيق)"""
+    try:
+        biometric_data = biometric.dict()
+        biometric_data['event_id'] = event_id
+        biometric_data['participant_id'] = participant_id
+        biometric_id = events_mgmt.events_db.register_biometric(biometric_data)
+        return {
+            "ok": True,
+            "biometric_id": biometric_id,
+            "message": "تم تسجيل البيانات البيومترية"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/events/seasonal/{event_id}/participants/{participant_id}/verify-biometric")
+def verify_biometric(event_id: int, participant_id: str, confidence_score: float):
+    """التحقق من البيانات البيومترية"""
+    try:
+        is_verified = events_mgmt.events_db.verify_biometric(
+            participant_id, event_id, confidence_score
+        )
+        status = "تم التحقق" if is_verified else "فشل التحقق"
+        return {
+            "ok": is_verified,
+            "message": status,
+            "confidence_score": confidence_score
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API تتبع الوصول والدخول =====
+
+@app.post("/api/events/seasonal/{event_id}/access-log")
+def log_participant_access(event_id: int, access_log: AccessLogCreate):
+    """تسجيل دخول/خروج المشارك"""
+    try:
+        access_data = access_log.dict()
+        access_data['event_id'] = event_id
+        access_log_id = events_mgmt.events_db.log_access(access_data)
+        return {
+            "ok": True,
+            "access_log_id": access_log_id,
+            "message": "تم تسجيل الدخول بنجاح"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API تتبع الموقع الجغرافي =====
+
+@app.post("/api/events/seasonal/{event_id}/location-track")
+def track_participant_location(event_id: int, location: LocationTrackCreate):
+    """تتبع موقع المشارك في الفعالية"""
+    try:
+        location_data = location.dict()
+        location_data['event_id'] = event_id
+        location_id = events_mgmt.events_db.track_location(location_data)
+        return {
+            "ok": True,
+            "location_id": location_id,
+            "message": "تم تسجيل الموقع"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/participants/{participant_id}/location-history")
+def get_participant_location_history(event_id: int, participant_id: str, limit: int = 100):
+    """الحصول على سجل مواقع المشارك"""
+    try:
+        locations = events_mgmt.events_db.get_participant_location_history(
+            participant_id, event_id, limit
+        )
+        return {
+            "count": len(locations),
+            "locations": locations
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API الأمان والتنبيهات =====
+
+@app.post("/api/events/seasonal/{event_id}/security-alert")
+def log_security_alert(event_id: int, alert: SecurityAlertCreate):
+    """تسجيل تنبيه أمني (دخول غير مصرح، جهاز معطل)"""
+    try:
+        alert_data = alert.dict()
+        alert_data['event_id'] = event_id
+        alert_id = events_mgmt.events_db.log_security_alert(alert_data)
+        return {
+            "ok": True,
+            "alert_id": alert_id,
+            "message": "تم تسجيل التنبيه الأمني"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/events/seasonal/{event_id}/fraud-attempt")
+def log_fraud_attempt(event_id: int, fraud: FraudAttemptCreate):
+    """تسجيل محاولة احتيال أو دخول مزيف"""
+    try:
+        fraud_data = fraud.dict()
+        fraud_data['event_id'] = event_id
+        fraud_id = events_mgmt.events_db.log_fraud_attempt(fraud_data)
+        return {
+            "ok": True,
+            "fraud_id": fraud_id,
+            "message": "تم تسجيل محاولة الاحتيال"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/active-alerts")
+def get_event_active_alerts(event_id: int):
+    """الحصول على التنبيهات النشطة للفعالية"""
+    try:
+        alerts = events_mgmt.events_db.get_active_alerts(event_id)
+        return {
+            "count": len(alerts),
+            "alerts": alerts
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== API معرفات الدخول =====
+
+@app.post("/api/events/seasonal/{event_id}/access-credentials")
+def create_access_credential(event_id: int, credential_data: dict):
+    """إنشاء معرف دخول للمشارك (QR Code، NFC، RFID)"""
+    try:
+        credential_data['event_id'] = event_id
+        credential_id = events_mgmt.events_db.create_access_credential(credential_data)
+        return {
+            "ok": True,
+            "credential_id": credential_id,
+            "message": "تم إنشاء معرف الدخول"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/events/seasonal/{event_id}/verify-credential")
+def verify_access_credential(event_id: int, credential_data: dict):
+    """التحقق من معرف الدخول"""
+    try:
+        credential_value = credential_data.get('credential')
+        result = events_mgmt.events_db.verify_credential(credential_value, event_id)
+        
+        if result:
+            return {
+                "ok": True,
+                "participant_id": result.get('participant_id'),
+                "full_name": result.get('full_name'),
+                "verification_status": result.get('verification_status'),
+                "message": "معرف الدخول صحيح"
+            }
+        else:
+            return {
+                "ok": False,
+                "message": "معرف الدخول غير صحيح أو منتهي الصلاحية"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ===== التقارير والإحصائيات =====
+
+@app.get("/api/events/seasonal/{event_id}/statistics")
+def get_event_statistics(event_id: int):
+    """الحصول على إحصائيات الفعالية"""
+    try:
+        stats = events_mgmt.events_db.get_event_statistics(event_id)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/fraud-report")
+def get_fraud_report(event_id: int, limit: int = 100):
+    """تقرير محاولات الاحتيال"""
+    try:
+        frauds = events_mgmt.events_db.get_fraud_report(event_id, limit)
+        return {
+            "count": len(frauds),
+            "frauds": frauds
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events/seasonal/{event_id}/security-report")
+def get_security_report(event_id: int, limit: int = 100):
+    """تقرير الأمان والتنبيهات"""
+    try:
+        alerts = events_mgmt.events_db.get_security_report(event_id, limit)
+        return {
+            "count": len(alerts),
+            "alerts": alerts
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Health check endpoint
 @app.get("/health")
