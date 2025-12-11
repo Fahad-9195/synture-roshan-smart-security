@@ -6,21 +6,56 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from functools import lru_cache
 import database as db
 import auth
 import events_management as events_mgmt
 
-app = FastAPI(title="Smart Security System - Absher", version="2.0")
+# Import configurations and middleware
+from config import settings
+from logger import logger, log_error, log_security_event
+from middleware import (
+    ErrorHandlerMiddleware,
+    RequestLoggingMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware
+)
+
+# Initialize FastAPI app
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    debug=settings.DEBUG
+)
 security = HTTPBearer()
 
-# ===== CORS عشان يسمح للـ HTML يتصل بالـ API محلياً =====
+# ===== Middleware Configuration =====
+# Security headers
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Rate limiting
+app.add_middleware(
+    RateLimitMiddleware,
+    max_requests=settings.RATE_LIMIT_REQUESTS,
+    window=settings.RATE_LIMIT_PERIOD
+)
+
+# Request logging
+app.add_middleware(RequestLoggingMiddleware)
+
+# Error handling
+app.add_middleware(ErrorHandlerMiddleware)
+
+# CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logger.info("✅ Middleware configured successfully")
 
 # ===== Models =====
 class Event(BaseModel):
@@ -176,9 +211,11 @@ def require_role(*allowed_roles: str):
 def login(credentials: UserLogin):
     """Login and get JWT token"""
     try:
+        logger.info(f"Login attempt for user: {credentials.username}")
         user = auth.authenticate_user(credentials.username, credentials.password)
         
         if not user:
+            log_security_event("failed_login", details=f"Username: {credentials.username}")
             raise HTTPException(status_code=401, detail="Invalid username or password")
         
         # Create access token
@@ -188,6 +225,9 @@ def login(credentials: UserLogin):
         
         # Log activity
         auth.log_activity(user['id'], "login", details=f"User {user['username']} logged in")
+        log_security_event("successful_login", user_id=user['id'], details=user['username'])
+        
+        logger.info(f"✅ User {user['username']} logged in successfully")
         
         return {
             "access_token": access_token,
@@ -203,6 +243,7 @@ def login(credentials: UserLogin):
     except HTTPException:
         raise
     except Exception as e:
+        log_error(e, "login")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/auth/me")
@@ -324,21 +365,25 @@ def get_resolutions(limit: int = 100):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/resolutions/stats")
+@lru_cache(maxsize=128)
 def get_resolution_stats():
-    """Get resolution statistics"""
+    """Get resolution statistics (cached)"""
     try:
         stats = db.get_resolution_stats()
         return stats
     except Exception as e:
+        log_error(e, "get_resolution_stats")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/statistics")
+@lru_cache(maxsize=128)
 def get_statistics():
-    """Get system statistics"""
+    """Get system statistics (cached)"""
     try:
         stats = db.get_statistics()
         return stats
     except Exception as e:
+        log_error(e, "get_statistics")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/officers")
@@ -728,7 +773,22 @@ def get_security_report(event_id: int, limit: int = 100):
 # Health check endpoint
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    """Health check endpoint for monitoring"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": settings.APP_VERSION,
+        "app": settings.APP_NAME
+    }
+
+@app.get("/api/version")
+def get_version():
+    """Get application version"""
+    return {
+        "name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "debug": settings.DEBUG
+    }
 
 if __name__ == "__main__":
     import uvicorn
@@ -738,11 +798,26 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(current_dir)
     
-    print("✅ Database initialized successfully")
-    print("🚀 Starting Smart Security System - Absher Edition")
-    print("📊 Dashboard: https://syntrue-absher.onrender.com")
-    print("🗺️  Operations Center: https://syntrue-absher.onrender.com/static/operations-center.html")
-    print("📱 Officer Device: https://syntrue-absher.onrender.com/static/officer-device.html?id=officer_1")
-    print("📈 Analytics: https://syntrue-absher.onrender.com/static/analytics.html")
+    # Log startup
+    logger.info("=" * 60)
+    logger.info(f"🚀 Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"🌐 Production URL: {settings.PRODUCTION_URL}")
+    logger.info(f"📁 Working Directory: {current_dir}")
+    logger.info(f"🔧 Debug Mode: {settings.DEBUG}")
+    logger.info("=" * 60)
+    
+    print("\n" + "="*60)
+    print(f"  🚀 {settings.APP_NAME}")
+    print(f"  📊 Version: {settings.APP_VERSION}")
+    print("="*60)
+    print(f"\n✅ Database initialized successfully")
+    print(f"🚀 Starting server on http://0.0.0.0:8000")
+    print(f"\n📊 Dashboard: {settings.PRODUCTION_URL}")
+    print(f"🗺️  Operations Center: {settings.PRODUCTION_URL}/static/operations-center.html")
+    print(f"📱 Officer Device: {settings.PRODUCTION_URL}/static/officer-device.html?id=officer_1")
+    print(f"📈 Analytics: {settings.PRODUCTION_URL}/static/analytics.html")
+    print(f"🌐 Welcome Page: {settings.PRODUCTION_URL}/static/welcome.html")
+    print("\n" + "="*60 + "\n")
+    
     uvicorn.run(app, host="0.0.0.0", port=8000)
 

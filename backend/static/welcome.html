@@ -254,7 +254,7 @@
 
     .card-features li {
       padding: 10px 0;
-      color: #cbd5e1;
+      color: #ffffff;
       font-size: 14px;
       display: flex;
       align-items: center;
@@ -361,7 +361,60 @@
     }
 
     /* Responsive */
+    /* Language Toggle Button */
+    .language-toggle {
+      position: fixed;
+      top: 30px;
+      right: 30px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid rgba(16, 185, 129, 0.3);
+      border-radius: 50px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    .language-toggle:hover {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: rgba(16, 185, 129, 0.5);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(16, 185, 129, 0.4);
+    }
+
+    .language-toggle i {
+      color: #10b981;
+      font-size: 18px;
+    }
+
+    .language-toggle .lang-text {
+      color: #e5e7eb;
+      font-weight: 700;
+      font-size: 14px;
+      min-width: 24px;
+      text-align: center;
+    }
+
     @media (max-width: 768px) {
+      .language-toggle {
+        top: 20px;
+        right: 20px;
+        padding: 10px 20px;
+      }
+
+      .language-toggle i {
+        font-size: 16px;
+      }
+
+      .language-toggle .lang-text {
+        font-size: 13px;
+      }
+
       .logo-section h1 {
         font-size: 36px;
       }
@@ -404,15 +457,17 @@
       <div class="logo-icon">
         <i class="fas fa-shield-halved"></i>
       </div>
-      <h1>نظام الأمان الذكي</h1>
-      <p>مرحباً بك في منصة أبشر المتكاملة</p>
-      <p class="subtitle">للأمن المنزلي والعمليات الميدانية</p>
-      <p style="font-size: 13px; color: #64748b; margin-top: 12px;">تطوير فريق <strong style="color: #10b981;">Synture</strong> 🚀</p>
+      <h1 data-translate="welcome_title">نظام الأمان الذكي</h1>
+      <p data-translate="welcome_subtitle">مرحباً بك في منصة أبشر المتكاملة</p>
+      <p class="subtitle" data-translate="welcome_tagline">للأمن المنزلي والعمليات الميدانية</p>
+      <p style="font-size: 13px; color: #64748b; margin-top: 12px;">
+        <span data-translate="welcome_powered">تطوير فريق</span> <strong style="color: #10b981;">Synture</strong> 🚀
+      </p>
     </div>
 
     <div class="question">
-      <h2>اختر نوع الحساب</h2>
-      <p>الرجاء تحديد نوع حسابك للمتابعة</p>
+      <h2 data-translate="choose_account">اختر نوع الحساب</h2>
+      <p data-translate="choose_subtitle">الرجاء تحديد نوع حسابك للمتابعة</p>
     </div>
 
     <div class="cards-container">
@@ -421,20 +476,20 @@
         <div class="card-icon">
           <i class="fas fa-home"></i>
         </div>
-        <h3 class="card-title">أفــراد</h3>
-        <p class="card-description">
+        <h3 class="card-title" data-translate="home_title">أفــراد</h3>
+        <p class="card-description" data-translate="home_description">
           نظام الأمان المنزلي الذكي للأفراد والعائلات
         </p>
         <ul class="card-features">
-          <li><i class="fas fa-check-circle"></i> مراقبة منزلك على مدار الساعة</li>
-          <li><i class="fas fa-check-circle"></i> تنبيهات فورية للأحداث الأمنية</li>
-          <li><i class="fas fa-check-circle"></i> إرسال بلاغات للشرطة</li>
-          <li><i class="fas fa-check-circle"></i> خرائط تفاعلية للأجهزة</li>
-          <li><i class="fas fa-check-circle"></i> نظام حل المشكلات المتقدم</li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="home_feature1">مراقبة منزلك على مدار الساعة</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="home_feature2">تنبيهات فورية للأحداث الأمنية</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="home_feature3">إرسال بلاغات للشرطة</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="home_feature4">خرائط تفاعلية للأجهزة</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="home_feature5">نظام حل المشكلات المتقدم</span></li>
         </ul>
         <button class="select-button">
           <i class="fas fa-sign-in-alt"></i>
-          <span>دخول الأفراد</span>
+          <span data-translate="home_login">دخول الأفراد</span>
         </button>
       </div>
 
@@ -443,26 +498,20 @@
         <div class="card-icon">
           <i class="fas fa-shield-alt"></i>
         </div>
-        <h3 class="card-title">الأمن الميداني</h3>
-        <p class="card-description">
+        <h3 class="card-title" data-translate="military_title">الأمن الميداني</h3>
+        <p class="card-description" data-translate="military_description">
           نظام إدارة الدوريات والعمليات الأمنية الميدانية
         </p>
         <ul class="card-features">
-          <li><i class="fas fa-check-circle"></i> تتبع الدوريات لحظياً</li>
-          <li><i class="fas fa-check-circle"></i> استقبال وإدارة البلاغات</li>
-          <li><i class="fas fa-check-circle"></i> تصدير واستيراد البيانات</li>
-          <li><i class="fas fa-check-circle"></i> تقارير وإحصائيات مفصلة</li>
-          <li><i class="fas fa-check-circle"></i> إدارة الفعاليات الموسمية</li>
-        </ul>
-          <li><i class="fas fa-check-circle"></i> متابعة الدوريات الأمنية</li>
-          <li><i class="fas fa-check-circle"></i> إدارة الحالات الطارئة</li>
-          <li><i class="fas fa-check-circle"></i> تتبع GPS للدوريات</li>
-          <li><i class="fas fa-check-circle"></i> تحليل أوقات الاستجابة</li>
-          <li><i class="fas fa-check-circle"></i> مركز العمليات الميداني</li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="military_feature1">متابعة الدوريات الأمنية</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="military_feature2">إدارة الحالات الطارئة</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="military_feature3">تتبع GPS للدوريات</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="military_feature4">تحليل أوقات الاستجابة</span></li>
+          <li><i class="fas fa-check-circle"></i> <span data-translate="military_feature5">مركز العمليات الميداني</span></li>
         </ul>
         <button class="select-button">
           <i class="fas fa-sign-in-alt"></i>
-          <span>دخول العسكريين</span>
+          <span data-translate="military_login">دخول العسكريين</span>
         </button>
       </div>
     </div>
@@ -478,6 +527,7 @@
     </div>
   </div>
 
+  <script src="translations.js"></script>
   <script>
     function selectType(type) {
       // Add loading animation
