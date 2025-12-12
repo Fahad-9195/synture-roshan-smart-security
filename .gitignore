@@ -31,8 +31,19 @@ yarn-error.log*
 
 # Logs
 *.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # Python coverage
 .pytest_cache/
 .coverage
 coverage.xml
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
