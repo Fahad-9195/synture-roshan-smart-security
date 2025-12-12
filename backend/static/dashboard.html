@@ -1943,13 +1943,7 @@ ${events
       // Display username
       usernameDisplay.textContent = currentUser;
       
-      logoutBtn.addEventListener('click', () => {
-        if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-          localStorage.removeItem('homeAuth');
-          localStorage.removeItem('homeUsername');
-          window.location.href = '/static/home-login.html';
-        }
-      });
+      logoutBtn.addEventListener('click', logout);
       
       // Initial fetch for resolutions
       fetchResolutions();
@@ -1961,6 +1955,7 @@ ${events
     function logout() {
       if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
         localStorage.removeItem('homeAuth');
+        localStorage.removeItem('homeUsername');
         window.location.href = '/static/welcome.html';
       }
     }
