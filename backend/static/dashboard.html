@@ -703,6 +703,10 @@
       <button id="manual-burglary-btn" class="btn danger"><i class="fas fa-bell"></i> بلاغ سرقة (خارج المنزل)</button>
       <button id="police-report-btn" class="btn danger"><i class="fas fa-exclamation-triangle"></i> إرسال بلاغ للشرطة</button>
       <button id="resolve-all-btn" class="btn danger"><i class="fas fa-check-double"></i> حل جميع البلاغات</button>
+      <button class="btn" onclick="window.location.href='/static/events-dashboard.html'"><i class="fas fa-calendar-alt"></i> إدارة الفعاليات</button>
+      <button class="btn" onclick="exportData()"><i class="fas fa-download"></i> تصدير البيانات</button>
+      <button class="btn" onclick="importData()"><i class="fas fa-upload"></i> استيراد البيانات</button>
+      <button class="btn" onclick="generateReport()"><i class="fas fa-file-alt"></i> التقارير</button>
       <button id="theme-toggle-btn" class="btn"><i class="fas fa-sun"></i> الوضع الفاتح</button>
       <button id="logout-btn" class="btn danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</button>
     </div>
@@ -1973,6 +1977,33 @@ ${events
         localStorage.removeItem('homeAuth');
         window.location.href = '/static/welcome.html';
       }
+    }
+
+    /*************** Export Data Function ***************/
+    function exportData() {
+      alert('جاري تصدير البيانات...');
+      // Add export logic here
+    }
+
+    /*************** Import Data Function ***************/
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json,.csv';
+      input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          alert('جاري استيراد البيانات من: ' + file.name);
+          // Add import logic here
+        }
+      };
+      input.click();
+    }
+
+    /*************** Generate Report Function ***************/
+    function generateReport() {
+      alert('جاري إنشاء التقرير...');
+      // Add report generation logic here
     }
   </script>
 </body>
