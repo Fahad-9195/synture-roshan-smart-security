@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚔 مركز العمليات - تتبع الدوريات والعسكر</title>
+
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #0ea5e9;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+      --dark: #0f172a;
+      --darker: #020617;
+      --border: #1e293b;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100vh;
+      gap: 0;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      background: #ffffff;
+      border-left: 1px solid #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.05), transparent);
+    }
+
+    .sidebar-header h1 {
+      font-size: 18px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #1e293b;
+    }
+
+    .sidebar-header p {
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--success);
+      color: var(--success);
+      margin-top: 10px;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      padding: 15px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .stat-box {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-box.safe .stat-value { color: var(--success); }
+    .stat-box.warning .stat-value { color: var(--warning); }
+    .stat-box.danger .stat-value { color: var(--danger); }
+
+    .stat-label {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+
+    /* ===== OFFICERS LIST ===== */
+    .officers-section {
+      padding: 15px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .officer-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .officer-card::before {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--success);
+    }
+
+    .officer-card.warning::before { background: var(--warning); }
+    .officer-card.danger::before { background: var(--danger); }
+
+    .officer-card:hover {
+      border-color: #0ea5e9;
+      background: rgba(14, 165, 233, 0.05);
+      transform: translateX(-2px);
+    }
+
+    .officer-card.active {
+      border-color: #0ea5e9;
+      background: rgba(14, 165, 233, 0.15);
+    }
+
+    .officer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .officer-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+
+    .officer-badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .officer-badge.safe {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--success);
+    }
+
+    .officer-badge.warning {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--warning);
+    }
+
+    .officer-badge.danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--danger);
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .officer-info {
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .officer-location {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .officer-time {
+      font-size: 10px;
+      opacity: 0.7;
+    }
+
+    .resolve-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid var(--success);
+      border-radius: 6px;
+      color: var(--success);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 600;
+    }
+
+    .resolve-btn:hover {
+      background: var(--success);
+      color: white;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    /* ===== MAIN MAP AREA ===== */
+    .main-area {
+      display: flex;
+      flex-direction: column;
+      background: rgba(2, 6, 23, 0.8);
+    }
+
+    .top-bar {
+      background: rgba(15, 23, 42, 0.95);
+      border-bottom: 1px solid var(--border);
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(20px);
+    }
+
+    .top-bar h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(30, 41, 59, 0.5);
+      color: var(--text);
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      border-color: var(--primary);
+      background: rgba(14, 165, 233, 0.1);
+    }
+
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    .btn.danger {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: white;
+    }
+
+    #map {
+      flex: 1;
+      position: relative;
+    }
+
+    /* ===== ALERT PANEL ===== */
+    .alert-panel {
+      position: fixed;
+      top: 80px;
+      left: 20px;
+      width: 300px;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1000;
+    }
+
+    .alert-item {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      animation: slideIn 0.3s ease;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(-20px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(20px);
+        opacity: 0;
+      }
+    }
+
+    .alert-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .alert-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--danger);
+    }
+
+    .alert-close {
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .alert-body {
+      font-size: 11px;
+      color: var(--text);
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: fixed;
+        right: -320px;
+        top: 0;
+        height: 100vh;
+        width: 320px;
+        z-index: 1000;
+        transition: right 0.3s ease;
+      }
+
+      .sidebar.open {
+        right: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <h1>🚔 مركز العمليات</h1>
+        <p>نظام تتبع الدوريات الأمنية</p>
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span>متصل بالشبكة</span>
+        </div>
+        
+         <!-- زر إدارة الفعاليات (يفتح نفس التبويب) -->
+         <button onclick="window.location.href='/static/events-dashboard.html'"
+            style="width: 100%; margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+              border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer;
+              font-size: 13px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);"
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(102, 126, 234, 0.4)'"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(102, 126, 234, 0.3)'">
+           🗓️ الانتقال إلى إدارة الفعاليات
+         </button>
+
+         <!-- زر تسجيل الخروج -->
+         <button onclick="logout()"
+            style="width: 100%; margin-top: 10px; padding: 12px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+              border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer;
+              font-size: 13px; transition: all 0.3s; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);"
+            onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(239, 68, 68, 0.4)'"
+            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(239, 68, 68, 0.3)'">
+           🚪 تسجيل الخروج
+         </button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box safe">
+          <div class="stat-value" id="safe-count">0</div>
+          <div class="stat-label">✅ آمن</div>
+        </div>
+        <div class="stat-box warning">
+          <div class="stat-value" id="warning-count">0</div>
+          <div class="stat-label">⚠️ غير مستقر</div>
+        </div>
+        <div class="stat-box danger">
+          <div class="stat-value" id="danger-count">0</div>
+          <div class="stat-label">🚨 خطر</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="total-count">0</div>
+          <div class="stat-label">إجمالي</div>
+        </div>
+      </div>
+
+      <div class="officers-section">
+        <div class="section-title">
+          <span>📋 قائمة الدوريات</span>
+          <span id="officer-count">0</span>
+        </div>
+        <div id="officers-list">
+          <div style="text-align: center; color: #64748b; font-size: 12px; padding: 20px;">
+            <p style="margin-bottom: 10px;">لا توجد بيانات دوريات بعد</p>
+            <button class="btn primary" onclick="addDemoOfficers()" style="width: 100%;">
+              🎯 إضافة دوريات تجريبية
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN MAP AREA -->
+    <div class="main-area">
+      <div class="top-bar">
+        <h2>🗺️ خريطة التتبع المباشر</h2>
+        <div class="controls">
+          <button class="btn" onclick="refreshData()">🔄 تحديث</button>
+          <button class="btn" onclick="toggleHeatmap()">🔥 Heatmap</button>
+          <button class="btn primary" onclick="centerMap()">📍 إعادة التوسيط</button>
+          <button class="btn" onclick="exportData()"><i class="fas fa-download"></i> تصدير</button>
+          <button class="btn" onclick="importData()"><i class="fas fa-upload"></i> استيراد</button>
+          <button class="btn" onclick="openReports()"><i class="fas fa-chart-bar"></i> التقارير</button>
+          <button class="btn" onclick="window.location.href='/static/events-dashboard.html'">🗓️ إدارة الفعاليات</button>
+          <button class="btn" onclick="window.location.href='/static/operations-dashboard.html'">🏠 العودة</button>
+        </div>
+      </div>
+
+      <div id="map"></div>
+
+      <!-- ALERTS PANEL -->
+      <div class="alert-panel" id="alert-panel"></div>
+    </div>
+  </div>
+
+  <script>
+    /*************** Authentication Check ***************/
+    // Check if user is logged in
+    const opsAuth = localStorage.getItem('opsAuth');
+    if (opsAuth !== 'true') {
+      window.location.href = '/static/operations-login.html';
+    }
+
+    const API_URL = "https://syntrue-absher.onrender.com/api/events";
+    let map = null;
+    let officerMarkers = {};
+    let heatLayer = null;
+    let showHeatmap = false;
+    let selectedOfficer = null;
+
+    const OFFICER_COORDS = {
+      officer_1: [24.7150, 46.6770],
+      officer_2: [24.7118, 46.6765],
+      officer_3: [24.7122, 46.6780],
+      officer_4: [24.7140, 46.6755],
+      officer_5: [24.7160, 46.6785],
+    };
+
+    const OFFICER_NAMES = {
+      officer_1: 'العريف أحمد الغامدي',
+      officer_2: 'الجندي محمد العتيبي',
+      officer_3: 'الرقيب خالد القحطاني',
+      officer_4: 'العريف سعد الشهري',
+      officer_5: 'الجندي عبدالله الدوسري',
+    };
+
+    const OFFICER_LOCATIONS = {
+      officer_1: 'شارع الملك فهد - حي الملز',
+      officer_2: 'طريق الملك عبدالعزيز - حي النخيل',
+      officer_3: 'شارع العليا - حي العليا',
+      officer_4: 'طريق الخرج - حي الياسمين',
+      officer_5: 'شارع التخصصي - حي المرسلات',
+    };
+
+    const OFFICER_BADGES = {
+      officer_1: '1001',
+      officer_2: '1002',
+      officer_3: '1003',
+      officer_4: '1004',
+      officer_5: '1005',
+    };
+
+    // Audio System
+    let audioContext = null;
+    let lastDangerAlertTime = 0;
+    const ALERT_COOLDOWN = 5000; // 5 seconds between alerts
+
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playBeep(frequency, duration, type = 'sine') {
+      initAudio();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = frequency;
+      oscillator.type = type;
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + duration);
+    }
+
+    function playDangerAlert() {
+      const now = Date.now();
+      if (now - lastDangerAlertTime < ALERT_COOLDOWN) return;
+      lastDangerAlertTime = now;
+
+      // Siren-like sound
+      playBeep(800, 0.2, 'square');
+      setTimeout(() => playBeep(600, 0.2, 'square'), 200);
+      setTimeout(() => playBeep(800, 0.2, 'square'), 400);
+      setTimeout(() => playBeep(600, 0.2, 'square'), 600);
+    }
+
+    function playWarningAlert() {
+      playBeep(500, 0.3, 'triangle');
+      setTimeout(() => playBeep(500, 0.3, 'triangle'), 400);
+    }
+
+    function playSafeAlert() {
+      playBeep(600, 0.1);
+      setTimeout(() => playBeep(800, 0.1), 100);
+    }
+
+    // Initialize map
+    function initMap() {
+      const center = [24.7136, 46.6753];
+      map = L.map("map").setView(center, 13);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: ''
+      }).addTo(map);
+
+      // Add headquarters marker
+      L.marker(center, {
+        icon: L.divIcon({
+          html: '🏢',
+          className: 'emoji-icon',
+          iconSize: [30, 30]
+        })
+      }).bindPopup("<b>مركز العمليات الرئيسي</b>").addTo(map);
+
+      heatLayer = L.heatLayer([], { radius: 30, blur: 20, maxZoom: 15 });
+    }
+
+    // Update officers on map
+    function updateOfficersOnMap(officers) {
+      // Clear old markers
+      Object.values(officerMarkers).forEach(m => map.removeLayer(m));
+      officerMarkers = {};
+
+      officers.forEach(officer => {
+        const coords = OFFICER_COORDS[officer.id] || [24.7136, 46.6753];
+        const officerName = OFFICER_NAMES[officer.id] || officer.id;
+        const location = OFFICER_LOCATIONS[officer.id] || 'موقع غير محدد';
+        const badge = OFFICER_BADGES[officer.id] || '---';
+        
+        let color = '#10b981';
+        let icon = '✅';
+        if (officer.status === 'warning') {
+          color = '#f59e0b';
+          icon = '⚠️';
+        } else if (officer.status === 'danger') {
+          color = '#ef4444';
+          icon = '🚨';
+        }
+
+        const marker = L.circleMarker(coords, {
+          radius: 12,
+          fillColor: color,
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.8
+        }).addTo(map);
+
+        marker.bindPopup(`
+          <div style="text-align: right; direction: rtl; min-width: 200px;">
+            <h3 style="margin: 0 0 8px; font-size: 14px;">${icon} ${officerName}</h3>
+            <p style="margin: 3px 0; font-size: 12px; color: #666;">
+              <strong>الرقم الوظيفي:</strong> ${badge}
+            </p>
+            <p style="margin: 3px 0; font-size: 12px; color: #666;">
+              <strong>الموقع:</strong> ${location}
+            </p>
+            <p style="margin: 3px 0; font-size: 12px;">
+              <strong>الحالة:</strong> <span style="color: ${color};">${officer.statusText}</span>
+            </p>
+            <p style="margin: 3px 0; font-size: 11px; color: #999;">
+              آخر تحديث: ${officer.lastUpdate}
+            </p>
+          </div>
+        `);
+
+        marker.on('click', () => selectOfficer(officer.id));
+
+        officerMarkers[officer.id] = marker;
+
+        // Add to heatmap if danger
+        if (officer.status === 'danger') {
+          heatLayer.addLatLng([coords[0], coords[1], 1]);
+        }
+      });
+    }
+
+    // Get officers data
+    async function fetchOfficersData() {
+      try {
+        const response = await fetch(API_URL);
+        const events = await response.json();
+
+        // Group by officer
+        const officerData = {};
+        events.forEach(event => {
+          if (event.device_id && event.device_id.startsWith('officer_')) {
+            if (!officerData[event.device_id]) {
+              officerData[event.device_id] = {
+                id: event.device_id,
+                name: OFFICER_NAMES[event.device_id] || event.device_id.replace('officer_', 'الدورية رقم '),
+                badge: OFFICER_BADGES[event.device_id] || 'غير محدد',
+                location: OFFICER_LOCATIONS[event.device_id] || 'غير محدد',
+                events: []
+              };
+            }
+            officerData[event.device_id].events.push(event);
+          }
+        });
+
+        // Get latest status for each
+        const officers = Object.values(officerData).map(officer => {
+          const latest = officer.events.sort((a, b) => 
+            new Date(b.timestamp) - new Date(a.timestamp)
+          )[0];
+
+          let status = 'safe';
+          let statusText = 'آمن';
+          if (latest.level === 'warning') {
+            status = 'warning';
+            statusText = 'غير مستقر';
+          } else if (latest.level === 'danger') {
+            status = 'danger';
+            statusText = 'خطر';
+          }
+
+          return {
+            ...officer,
+            status,
+            statusText,
+            lastUpdate: new Date(latest.timestamp).toLocaleString('ar-SA'),
+            lastEvent: latest
+          };
+        });
+
+        // Update stats
+        const safe = officers.filter(o => o.status === 'safe').length;
+        const warning = officers.filter(o => o.status === 'warning').length;
+        const danger = officers.filter(o => o.status === 'danger').length;
+
+        document.getElementById('safe-count').textContent = safe;
+        document.getElementById('warning-count').textContent = warning;
+        document.getElementById('danger-count').textContent = danger;
+        document.getElementById('total-count').textContent = officers.length;
+        document.getElementById('officer-count').textContent = officers.length;
+
+        // Render officers list
+        renderOfficersList(officers);
+
+        // Update map
+        updateOfficersOnMap(officers);
+
+        // Show alerts for danger
+        const dangerOfficers = officers.filter(o => o.status === 'danger');
+        dangerOfficers.forEach(showAlert);
+        
+        // Play danger sound if any danger status
+        if (dangerOfficers.length > 0) {
+          playDangerAlert();
+        }
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    }
+
+    // Render officers list
+    function renderOfficersList(officers) {
+      const list = document.getElementById('officers-list');
+      
+      if (officers.length === 0) {
+        list.innerHTML = `
+          <div style="text-align: center; color: #64748b; font-size: 12px; padding: 20px;">
+            <p style="margin-bottom: 10px;">لا توجد بيانات دوريات بعد</p>
+            <button class="btn primary" onclick="addDemoOfficers()" style="width: 100%;">
+              🎯 إضافة دوريات تجريبية
+            </button>
+          </div>
+        `;
+        return;
+      }
+      
+      list.innerHTML = officers.map(officer => {
+        const resolveButton = (officer.status === 'warning' || officer.status === 'danger') 
+          ? `<button class="resolve-btn" onclick="event.stopPropagation(); resolveOfficer('${officer.id}', '${officer.name}')">✅ حل المشكلة</button>`
+          : '';
+        
+        return `
+          <div class="officer-card ${officer.status} ${selectedOfficer === officer.id ? 'active' : ''}">
+            <div onclick="selectOfficer('${officer.id}')">
+              <div class="officer-header">
+                <div class="officer-name">${officer.name}</div>
+                <div class="officer-badge ${officer.status}">${officer.statusText}</div>
+              </div>
+              <div class="officer-info">
+                <div class="officer-location">📍 ${officer.location}</div>
+                <div class="officer-time">🎫 ${officer.badge} • ⏰ ${officer.lastUpdate}</div>
+              </div>
+            </div>
+            ${resolveButton}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Add demo officers
+    async function addDemoOfficers() {
+      const officers = [
+        { id: 'officer_1', type: 'officer_safe', level: 'info' },
+        { id: 'officer_2', type: 'officer_safe', level: 'info' },
+        { id: 'officer_3', type: 'officer_unstable', level: 'warning' },
+        { id: 'officer_4', type: 'officer_safe', level: 'info' },
+        { id: 'officer_5', type: 'officer_emergency', level: 'danger' },
+      ];
+
+      for (const officer of officers) {
+        try {
+          await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              device_id: officer.id,
+              type: officer.type,
+              level: officer.level,
+              timestamp: new Date().toISOString(),
+              status: 'open',
+              home_id: 'OPERATIONS-CENTER',
+              absher_id: officer.id
+            })
+          });
+        } catch (error) {
+          console.error('Error adding officer:', error);
+        }
+      }
+
+      setTimeout(() => fetchOfficersData(), 500);
+    }
+
+    // Select officer
+    function selectOfficer(officerId) {
+      selectedOfficer = officerId;
+      const coords = OFFICER_COORDS[officerId];
+      if (coords && map) {
+        map.setView(coords, 15);
+        if (officerMarkers[officerId]) {
+          officerMarkers[officerId].openPopup();
+        }
+      }
+      fetchOfficersData();
+    }
+
+    // Resolve officer problem
+    async function resolveOfficer(officerId, officerName) {
+      try {
+        // Get current officer data to calculate response time
+        const response = await fetch(API_URL);
+        const events = await response.json();
+        const officerEvents = events.filter(e => e.device_id === officerId);
+        const lastEvent = officerEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+        
+        if (!lastEvent) return;
+        
+        const responseTime = Math.floor((new Date() - new Date(lastEvent.timestamp)) / 1000);
+        
+        // Play success sound
+        playSafeAlert();
+        
+        // Save resolution record
+        await fetch('https://syntrue-absher.onrender.com/api/resolutions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_id: lastEvent.id,
+            device_id: officerId,
+            device_name: officerName,
+            original_type: lastEvent.type,
+            original_level: lastEvent.level,
+            resolved_by: 'مركز العمليات',
+            resolution_type: 'officer',
+            notes: `تم حل المشكلة للدورية ${officerName}`,
+            response_time_seconds: responseTime
+          })
+        });
+        
+        // Send safe status to backend
+        await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: officerId,
+            type: 'officer_safe',
+            level: 'info',
+            timestamp: new Date().toISOString(),
+            status: 'open',
+            home_id: 'OPERATIONS-CENTER',
+            absher_id: officerId
+          })
+        });
+
+        // Remove any alerts for this officer
+        const alertElement = document.querySelector(`[data-officer="${officerId}"]`);
+        if (alertElement) {
+          alertElement.remove();
+        }
+        
+        // Show detailed success notification
+        const minutes = Math.floor(responseTime / 60);
+        const seconds = responseTime % 60;
+        const timeStr = minutes > 0 ? `${minutes}د ${seconds}ث` : `${seconds}ث`;
+        showNotification(`✅ تم حل المشكلة: ${officerName}\nوقت الاستجابة: ${timeStr}`, 'success');
+        
+        // Refresh data immediately
+        setTimeout(() => fetchOfficersData(), 300);
+      } catch (error) {
+        console.error('Error resolving officer:', error);
+        showNotification('❌ حدث خطأ أثناء حل المشكلة', 'error');
+      }
+    }
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)'};
+        color: white;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      `;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // Show alert
+    function showAlert(officer) {
+      const panel = document.getElementById('alert-panel');
+      const existing = document.querySelector(`[data-officer="${officer.id}"]`);
+      if (existing) return;
+
+      const alert = document.createElement('div');
+      alert.className = 'alert-item';
+      alert.setAttribute('data-officer', officer.id);
+      alert.innerHTML = `
+        <div class="alert-header">
+          <div class="alert-title">🚨 تنبيه: ${officer.name}</div>
+          <div class="alert-close" onclick="this.parentElement.parentElement.remove()">×</div>
+        </div>
+        <div class="alert-body">
+          الحالة: ${officer.statusText}<br>
+          النوع: ${officer.lastEvent.type}<br>
+          الوقت: ${officer.lastUpdate}
+        </div>
+      `;
+      panel.insertBefore(alert, panel.firstChild);
+
+      // Auto remove after 30 seconds
+      setTimeout(() => alert.remove(), 30000);
+    }
+
+    // Toggle heatmap
+    function toggleHeatmap() {
+      showHeatmap = !showHeatmap;
+      if (showHeatmap) {
+        map.addLayer(heatLayer);
+      } else {
+        map.removeLayer(heatLayer);
+      }
+    }
+
+    // Center map
+    function centerMap() {
+      map.setView([24.7136, 46.6753], 13);
+    }
+
+    // Refresh data
+    function refreshData() {
+      fetchOfficersData();
+    }
+
+    // Export data to CSV
+    function exportData() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(events => {
+          const header = ['timestamp', 'device_id', 'type', 'level', 'status'];
+          const rows = events.map(e => [
+            e.timestamp, e.device_id, e.type, e.level, e.status || 'open'
+          ]);
+          const escape = (v) => `"${String(v).replace(/"/g, '""')}"`;
+          const csv = header.join(';') + '\r\n' + rows.map(r => r.map(escape).join(';')).join('\r\n');
+          const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `operations_${new Date().toISOString().slice(0,10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showNotification('تم تصدير البيانات ✅');
+        })
+        .catch(err => {
+          console.error(err);
+          showNotification('فشل التصدير ❌');
+        });
+    }
+
+    // Import data from CSV
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.csv,text/csv';
+      input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const text = ev.target.result;
+          const lines = text.split(/\r?\n/).filter(l => l.trim());
+          if (lines.length <= 1) {
+            alert('الملف فارغ');
+            return;
+          }
+          let imported = 0;
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(/[;,]/).map(p => p.trim().replace(/^"|"$/g, ''));
+            if (parts.length < 4) continue;
+            const payload = {
+              timestamp: parts[0],
+              device_id: parts[1],
+              type: parts[2],
+              level: parts[3],
+              status: parts[4] || 'open'
+            };
+            try {
+              await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+              imported++;
+            } catch (err) {
+              console.error(err);
+            }
+          }
+          showNotification(`تم استيراد ${imported} حدث ✅`);
+          refreshData();
+        };
+        reader.readAsText(file, 'utf-8');
+      };
+      input.click();
+    }
+
+    // Open reports page
+    function openReports() {
+      fetch(API_URL)
+        .then(res => res.json())
+        .then(events => {
+          const win = window.open('', '_blank');
+          const html = `
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="UTF-8" />
+<title>تقرير العمليات الأمنية</title>
+<style>
+body { font-family: system-ui, sans-serif; padding: 20px; }
+h1 { margin-top: 0; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px; }
+th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: right; }
+th { background: #f3f4f6; }
+.meta { margin-bottom: 10px; color: #555; }
+.btn-print { margin-bottom: 15px; padding: 8px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>تقرير العمليات الأمنية</h1>
+<p class="meta">إجمالي الأحداث: ${events.length}</p>
+<button class="btn-print" onclick="window.print()">🖨 طباعة / حفظ PDF</button>
+<table>
+<thead>
+<tr>
+<th>الوقت</th>
+<th>الجهاز</th>
+<th>النوع</th>
+<th>الخطورة</th>
+<th>الحالة</th>
+</tr>
+</thead>
+<tbody>
+${events.slice().reverse().map(e => `
+<tr>
+<td>${e.timestamp}</td>
+<td>${e.device_id}</td>
+<td>${e.type}</td>
+<td>${e.level}</td>
+<td>${e.status || 'open'}</td>
+</tr>`).join('')}
+</tbody>
+</table>
+</body>
+</html>`;
+          win.document.write(html);
+          win.document.close();
+        })
+        .catch(err => {
+          console.error(err);
+          alert('فشل فتح التقارير');
+        });
+    }
+
+    /*************** Logout Function ***************/
+    function logout() {
+      if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+        localStorage.removeItem('opsAuth');
+        localStorage.removeItem('opsUsername');
+        window.location.href = '/static/operations-login.html';
+      }
+    }
+
+    // Initialize
+    window.addEventListener('load', () => {
+      initMap();
+      fetchOfficersData();
+      setInterval(fetchOfficersData, 3000);
+    });
+  </script>
+</body>
+</html>
